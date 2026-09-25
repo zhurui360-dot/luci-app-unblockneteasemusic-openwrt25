@@ -1,0 +1,102 @@
+name: Build luci-app-unblockneteasemusic
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v3.4-1-openwrt25.12)'
+        required: false
+        default: ''
+      publish:
+        description: 'Publish a GitHub Release'
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (OpenWrt ${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # kernel 6.12 -> OpenWrt 25.12 系列，包管理器为 apk
+          - version: 25.12.4
+            target: x86/64
+          # 兼容回退：24.10 系列（kernel 6.6），包管理器为 opkg
+          - version: 24.10.7
+            target: x86/64
+
+    env:
+      OWRT_VERSION: ${{ matrix.version }}
+      OWRT_TARGET: ${{ matrix.target }}
+      PKG_NAME: luci-app-unblockneteasemusic
+      UPSTREAM_REPO: https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic.git
+      # 25.12 的 LuCI 是 JS 版，必须使用 js 分支；master 分支是老的 Lua 版，不兼容
+      UPSTREAM_BRANCH: js
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential file gawk gettext git libncurses-dev libssl-dev \
+            python3 python3-setuptools rsync swig unzip wget zlib1g-dev zstd
+
+      - name: Fetch package source (${{ env.UPSTREAM_BRANCH }} branch)
+        run: |
+          set -e
+          git clone --depth 1 -b "$UPSTREAM_BRANCH" "$UPSTREAM_REPO" "package/$PKG_NAME"
+          rm -rf "package/$PKG_NAME/.git"
+
+      - name: Download OpenWrt SDK ${{ matrix.version }}
+        run: |
+          set -e
+          base="https://downloads.openwrt.org/releases/$OWRT_VERSION/targets/$OWRT_TARGET"
+          sdk=$(wget -qO- "$base/" | grep -oE "openwrt-sdk-[^\"']*\.tar\.zst" | head -1)
+          if [ -z "$sdk" ]; then echo "SDK not found under $base"; exit 1; fi
+          echo "SDK: $sdk"
+          wget -q "$base/$sdk"
+          tar --zstd -xf "$sdk"
+
+      - name: Compile package
+        run: |
+          set -e
+          cd openwrt-sdk-*
+          echo "src-link custom $GITHUB_WORKSPACE/package" >> feeds.conf.default
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          make defconfig
+          make "package/$PKG_NAME/compile" -j"$(nproc)" V=s
+
+      - name: Collect artifacts
+        run: |
+          set -e
+          mkdir -p out
+          find . \( -name "$PKG_NAME*.apk" -o -name "$PKG_NAME*.ipk" \) -exec cp {} out/ \;
+          ls -lh out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-openwrt${{ matrix.version }}
+          path: out/*
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ env.PKG_NAME }} - OpenWrt ${{ matrix.version }} 编译产物
+          body_path: RELEASE_NOTES.md
+          files: out/*
