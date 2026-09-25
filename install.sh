@@ -9,7 +9,6 @@ set -e
 OWNER="zhurui360-dot"
 REPO="luci-app-unblockneteasemusic-openwrt25"
 RELEASE_TAG="${RELEASE_TAG:-v3.4-1-openwrt25.12}"
-KEYS_DIR="/etc/apk/keys"
 
 say() { echo "==> $*"; }
 die() { echo "!!! $*" >&2; exit 1; }
@@ -56,15 +55,32 @@ if command -v apk >/dev/null 2>&1; then
   [ -n "$PKG_URL" ] || die "取不到 apk 下载地址"
   say "OpenWrt 25.12 / 使用 apk"
 
+  # 说明：OpenWrt SDK 打出的 .apk 单文件本身不带签名（签名只在软件源索引上），
+  # 因此本地 apk add 必然报 UNTRUSTED，导入公钥也无济于事。
+  # 这里的完整性保障是：HTTPS 下载 + GitHub Release API 的 sha256 摘要校验。
+  verify_digest() {
+    # verify_digest <下载URL> <本地文件> —— 尽力而为：拿不到摘要就跳过
+    [ -n "$JSON" ] || return 0
+    want="$(echo "$JSON" | tr ',' '\n' | awk -v u="$1" '
+      /browser_download_url/ { if (index($0, u)) { print d; exit } }
+      /sha256:[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/ {
+        d = $0; sub(/.*sha256:/, "", d); sub(/".*/, "", d); d = "sha256:" d
+      }')"
+    [ -n "$want" ] || { say "（未取到 SHA-256 摘要，跳过校验）"; return 0; }
+    got="sha256:$(sha256sum "$2" | cut -d' ' -f1)"
+    if [ "$got" = "$want" ]; then
+      say "SHA-256 校验通过"
+    else
+      die "SHA-256 校验失败（期望 $want，实际 $got），文件可能被篡改或下载不完整"
+    fi
+  }
+
   # OpenWrt 25.12 官方源已移除 Node.js，本仓库提供官方 musl 二进制打好的包
   if ! command -v node >/dev/null 2>&1; then
     if [ -n "$NODE_URL" ]; then
       say "安装 Node.js 运行时（本仓库提供，官方源已移除）"
       get "$NODE_URL" /tmp/unb-node.apk
-      if [ -n "$KEY_URL" ]; then
-        mkdir -p "$KEYS_DIR"
-        get "$KEY_URL" "$KEYS_DIR/builder.rsa.pub"
-      fi
+      verify_digest "$NODE_URL" /tmp/unb-node.apk
       apk add --allow-untrusted /tmp/unb-node.apk
       rm -f /tmp/unb-node.apk
     else
@@ -80,21 +96,12 @@ if command -v apk >/dev/null 2>&1; then
   apk update || true
   apk add dnsmasq-full || echo "（dnsmasq-full 安装失败请手动处理，Hosts 劫持方式用系统自带 dnsmasq 也能跑）"
 
-  if [ -n "$KEY_URL" ]; then
-    say "导入构建签名公钥"
-    mkdir -p "$KEYS_DIR"
-    get "$KEY_URL" "$KEYS_DIR/builder.rsa.pub"
-  fi
-
   say "下载插件"
   get "$PKG_URL" /tmp/unb-pkg.apk
+  verify_digest "$PKG_URL" /tmp/unb-pkg.apk
 
   say "安装插件"
-  if [ -f "$KEYS_DIR/builder.rsa.pub" ]; then
-    apk add /tmp/unb-pkg.apk
-  else
-    apk add --allow-untrusted /tmp/unb-pkg.apk
-  fi
+  apk add --allow-untrusted /tmp/unb-pkg.apk
   rm -f /tmp/unb-pkg.apk
 
   # 校验 node 真的能跑（musl / glibc 不匹配会在这里暴露）

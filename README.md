@@ -33,22 +33,20 @@ wget -O - https://raw.githubusercontent.com/zhurui360-dot/luci-app-unblockneteas
 ### OpenWrt 25.12（apk）
 
 ```sh
-apk update
-apk add node dnsmasq
+# 插件依赖 Node.js，官方源已移除，先装本仓库打的 Node 包
+apk add --allow-untrusted \
+  https://github.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/releases/latest/download/node-22.23.3-r1.apk
 
-# 一次性导入构建签名公钥，之后这台机器就免 --allow-untrusted
-mkdir -p /etc/apk/keys
-wget -O /etc/apk/keys/builder.rsa.pub \
-  https://github.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/releases/latest/download/key-build.rsa.pub
-
-wget -O /tmp/unb.apk \
+# 装插件（x86_64）
+apk add --allow-untrusted \
   https://github.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/releases/latest/download/luci-app-unblockneteasemusic-3.4-r1.apk
-apk add /tmp/unb.apk
 
 rm -rf /tmp/luci-* && service rpcd restart && service uhttpd restart
 ```
 
-不想导公钥就临时跳过校验：`apk add --allow-untrusted /tmp/unb.apk`
+> 说明：OpenWrt SDK 打出的 `.apk` 单文件不带签名，`apk add` 本地文件必须
+> `--allow-untrusted`，导入公钥没有用。脚本的完整性保障是 HTTPS 下载 +
+> GitHub Release API 提供的 SHA-256 摘要校验。
 
 ### OpenWrt 24.10（opkg）
 
