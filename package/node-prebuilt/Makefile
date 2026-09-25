@@ -31,6 +31,13 @@ define Package/node
   PROVIDES:=nodejs
 endef
 
+# The official linux-x64-musl binary requests musl's loader as a SONAME.
+# OpenWrt packages libc under an ABI package name, so declare the loader SONAME
+# explicitly to map the ELF dependency to the libc package dependency above.
+define Package/node/extra_provides
+	echo "libc.musl-x86_64.so.1"
+endef
+
 define Package/node/description
   Node.js 22 runtime, repackaged from the official linux-x64-musl prebuilt
   binary, so that packages depending on "node" can be installed via apk.
