@@ -102,9 +102,10 @@ jobs:
         run: |
           set -e
           mkdir -p out
-          find sdk/bin/packages -path '*custom*' \
-            \( -name "$PKG_NAME*.apk" -o -name "$PKG_NAME*.ipk" -o -name 'node-[0-9]*.apk' \) \
+          find sdk/bin/packages \
+            \( -name "$PKG_NAME-*.apk" -o -name "$PKG_NAME_*.apk" -o -name "$PKG_NAME_*.ipk" -o -name 'node-2*.apk' \) \
             -exec cp {} out/ \;
+          find sdk/bin/packages -name '*.apk' | grep -E "(luci-app-unblockneteasemusic|^sdk/bin/packages/[a-z0-9]*/[a-z]*/node-)" || true
           # SDK 自签名的公钥，放到 /etc/apk/keys/ 即可免去 --allow-untrusted
           # 注意：只发公钥，私钥 private-key.pem 绝不外传
           for f in sdk/public-key.pem sdk/key-build.pub sdk/key-build.rsa.pub; do
