@@ -67,12 +67,13 @@ jobs:
           if [ -z "$sdk" ]; then echo "SDK not found under $base"; exit 1; fi
           echo "SDK: $sdk"
           wget -q "$base/$sdk"
-          tar --zstd -xf "$sdk"
+          mkdir -p sdk
+          tar --zstd -xf "$sdk" -C sdk --strip-components=1
 
       - name: Compile package
         run: |
           set -e
-          cd openwrt-sdk-*
+          cd sdk
           echo "src-link custom $GITHUB_WORKSPACE/package" >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
