@@ -41,10 +41,12 @@ pick() {
 if [ -z "$JSON" ]; then
   say "无法访问 GitHub API，改用固定版本 $RELEASE_TAG"
   PKG_URL="$FALLBACK/luci-app-unblockneteasemusic-3.4-r1.apk"
-  KEY_URL="$FALLBACK/key-build.rsa.pub"
+  KEY_URL="$FALLBACK/builder.rsa.pub"
 else
   PKG_URL="$(pick 'luci-app-unblockneteasemusic-[0-9a-z.-]*\.apk')"
-  KEY_URL="$(pick 'key-build[^"]*\.pub')"
+  KEY_URL="$(pick 'builder\.rsa\.pub')"
+  [ -n "$KEY_URL" ] || KEY_URL="$(pick 'public-key\.pem')"
+  [ -n "$KEY_URL" ] || KEY_URL="$(pick 'key-build[^"]*\.pub')"
 fi
 
 if command -v apk >/dev/null 2>&1; then

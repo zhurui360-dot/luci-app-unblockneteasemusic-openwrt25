@@ -28,10 +28,8 @@ jobs:
       matrix:
         include:
           # kernel 6.12 -> OpenWrt 25.12 系列，包管理器为 apk
+          # 插件是 noarch(all)，x86/64 SDK 编出的包可用于任意 CPU 架构
           - version: 25.12.4
-            target: x86/64
-          # 兼容回退：24.10 系列（kernel 6.6），包管理器为 opkg
-          - version: 24.10.7
             target: x86/64
 
     env:
@@ -85,8 +83,12 @@ jobs:
           set -e
           mkdir -p out
           find . \( -name "$PKG_NAME*.apk" -o -name "$PKG_NAME*.ipk" \) -exec cp {} out/ \;
-          # SDK 自签名的公钥，拷走后放到 /etc/apk/keys/ 即可免去 --allow-untrusted
-          find sdk -maxdepth 1 -type f \( -name 'key-build*' -o -name '*.rsa.pub' -o -name '*.pub' \) -exec cp {} out/ \;
+          # SDK 自签名的公钥，放到 /etc/apk/keys/ 即可免去 --allow-untrusted
+          # 注意：只发公钥，私钥 private-key.pem 绝不外传
+          for f in sdk/public-key.pem sdk/key-build.pub sdk/key-build.rsa.pub; do
+            if [ -f "$f" ]; then cp "$f" out/; fi
+          done
+          if [ -f out/public-key.pem ]; then cp out/public-key.pem out/builder.rsa.pub; fi
           ls -lh out
 
       - name: Upload artifacts
