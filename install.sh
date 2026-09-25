@@ -41,9 +41,11 @@ pick() {
 if [ -z "$JSON" ]; then
   say "无法访问 GitHub API，改用固定版本 $RELEASE_TAG"
   PKG_URL="$FALLBACK/luci-app-unblockneteasemusic-3.4-r1.apk"
+  NODE_URL="$FALLBACK/node-22.23.3-r1.apk"
   KEY_URL="$FALLBACK/builder.rsa.pub"
 else
   PKG_URL="$(pick 'luci-app-unblockneteasemusic-[0-9a-z.-]*\.apk')"
+  NODE_URL="$(pick 'node-[0-9][^"]*\.apk')"
   KEY_URL="$(pick 'builder\.rsa\.pub')"
   [ -n "$KEY_URL" ] || KEY_URL="$(pick 'public-key\.pem')"
   [ -n "$KEY_URL" ] || KEY_URL="$(pick 'key-build[^"]*\.pub')"
@@ -56,10 +58,13 @@ if command -v apk >/dev/null 2>&1; then
 
   # OpenWrt 25.12 官方源已移除 Node.js，本仓库提供官方 musl 二进制打好的包
   if ! command -v node >/dev/null 2>&1; then
-    NODE_URL="$(pick 'node-[0-9][^"]*\.apk')"
     if [ -n "$NODE_URL" ]; then
       say "安装 Node.js 运行时（本仓库提供，官方源已移除）"
       get "$NODE_URL" /tmp/unb-node.apk
+      if [ -n "$KEY_URL" ]; then
+        mkdir -p "$KEYS_DIR"
+        get "$KEY_URL" "$KEYS_DIR/builder.rsa.pub"
+      fi
       apk add --allow-untrusted /tmp/unb-node.apk
       rm -f /tmp/unb-node.apk
     else
@@ -85,7 +90,11 @@ if command -v apk >/dev/null 2>&1; then
   get "$PKG_URL" /tmp/unb-pkg.apk
 
   say "安装插件"
-  apk add --allow-untrusted /tmp/unb-pkg.apk
+  if [ -f "$KEYS_DIR/builder.rsa.pub" ]; then
+    apk add /tmp/unb-pkg.apk
+  else
+    apk add --allow-untrusted /tmp/unb-pkg.apk
+  fi
   rm -f /tmp/unb-pkg.apk
 
   # 校验 node 真的能跑（musl / glibc 不匹配会在这里暴露）
@@ -98,7 +107,7 @@ if command -v apk >/dev/null 2>&1; then
 elif command -v opkg >/dev/null 2>&1; then
   ########## OpenWrt 24.10（opkg） ##########
   PKG_IPK="$(echo "$JSON" | tr ',{' '\n\n' | grep -o "https://[^\"]*luci-app-unblockneteasemusic[^.]*[0-9a-z.-]*\.ipk" | head -1)"
-  [ -n "$PKG_IPK" ] || die "Release 里没有 .ipk（当前 Release 只针对 25.12 编译）"
+  [ -n "$PKG_IPK" ] || die "Release 里没有 .ipk（当前只针对 OpenWrt 25.12 发布）"
 
   say "OpenWrt 24.10 / 使用 opkg"
   opkg update || true

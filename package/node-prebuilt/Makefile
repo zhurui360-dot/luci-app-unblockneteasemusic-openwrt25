@@ -27,7 +27,7 @@ define Package/node
   SUBMENU:=Node.js
   TITLE:=Node.js runtime (official musl x86_64 build)
   URL:=https://nodejs.org/
-  DEPENDS:=@TARGET_x86_64
+  DEPENDS:=@TARGET_x86_64 +libstdcpp
   PROVIDES:=nodejs
 endef
 

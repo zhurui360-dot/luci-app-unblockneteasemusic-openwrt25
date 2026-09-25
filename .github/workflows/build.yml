@@ -106,6 +106,13 @@ jobs:
           find sdk/bin/packages \
             \( -name "$PKG_NAME-*.apk" -o -name "$PKG_NAME_*.apk" -o -name "$PKG_NAME_*.ipk" -o -name 'node-2*.apk' \) \
             -exec cp {} out/ \;
+          # Fail fast if the expected packages are missing (do not publish a partial Release)
+          test -n "$(find out -maxdepth 1 -name "$PKG_NAME-*.apk" -print -quit)"
+          test -n "$(find out -maxdepth 1 -name 'node-2*.apk' -print -quit)"
+          for f in sdk/public-key.pem sdk/key-build.pub sdk/key-build.rsa.pub; do
+            if [ -f "$f" ]; then cp "$f" out/; fi
+          done
+          if [ -f out/public-key.pem ]; then cp out/public-key.pem out/builder.rsa.pub; fi
           echo "Collected packages:"
           ls -lh out
 
