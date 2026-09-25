@@ -11,7 +11,54 @@
 上游 Release 只提供 `.ipk`，而 OpenWrt 25.12（内核 6.12）已将包管理器从 opkg 换成
 **apk**，`.ipk` 无法直接安装。本仓库用 25.12 SDK 编出 `.apk` 供新版本使用。
 
-## 触发方式
+## 一键安装（推荐）
+
+在路由器 SSH 里执行一行：
+
+```sh
+wget -O - https://raw.githubusercontent.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/main/install.sh | sh
+```
+
+脚本会自己判断 `apk` / `opkg`、拉依赖（node、dnsmasq）、导入构建签名公钥、装插件并刷新 LuCI。
+
+想装历史版本可指定（把 RELEASE_TAG 换成 Release 页面的 tag）：
+
+```sh
+export RELEASE_TAG=v3.4-1-openwrt25.12
+wget -O - https://raw.githubusercontent.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/main/install.sh | sh
+```
+
+## 手动安装
+
+### OpenWrt 25.12（apk）
+
+```sh
+apk update
+apk add node dnsmasq
+
+# 一次性导入构建签名公钥，之后这台机器就免 --allow-untrusted
+mkdir -p /etc/apk/keys
+wget -O /etc/apk/keys/builder.rsa.pub \
+  https://github.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/releases/latest/download/key-build.rsa.pub
+
+wget -O /tmp/unb.apk \
+  https://github.com/zhurui360-dot/luci-app-unblockneteasemusic-openwrt25/releases/latest/download/luci-app-unblockneteasemusic-3.4-r1.apk
+apk add /tmp/unb.apk
+
+rm -rf /tmp/luci-* && service rpcd restart && service uhttpd restart
+```
+
+不想导公钥就临时跳过校验：`apk add --allow-untrusted /tmp/unb.apk`
+
+### OpenWrt 24.10（opkg）
+
+```sh
+opkg update
+opkg install node dnsmasq
+opkg install ./luci-app-unblockneteasemusic_*.ipk
+```
+
+## 触发编译
 
 ```sh
 # 只编译，不发 Release
