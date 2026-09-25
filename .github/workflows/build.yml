@@ -95,7 +95,8 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           make defconfig
-          make package/node/compile V=s
+          grep -q '^CONFIG_PACKAGE_node=y' .config || { echo 'CONFIG_PACKAGE_node=y' >> .config; make defconfig; }
+          make package/feeds/custom/node-prebuilt/compile V=s
           make "package/$PKG_NAME/compile" -j"$(nproc)" V=s
 
       - name: Collect artifacts
@@ -105,13 +106,7 @@ jobs:
           find sdk/bin/packages \
             \( -name "$PKG_NAME-*.apk" -o -name "$PKG_NAME_*.apk" -o -name "$PKG_NAME_*.ipk" -o -name 'node-2*.apk' \) \
             -exec cp {} out/ \;
-          find sdk/bin/packages -name '*.apk' | grep -E "(luci-app-unblockneteasemusic|^sdk/bin/packages/[a-z0-9]*/[a-z]*/node-)" || true
-          # SDK 自签名的公钥，放到 /etc/apk/keys/ 即可免去 --allow-untrusted
-          # 注意：只发公钥，私钥 private-key.pem 绝不外传
-          for f in sdk/public-key.pem sdk/key-build.pub sdk/key-build.rsa.pub; do
-            if [ -f "$f" ]; then cp "$f" out/; fi
-          done
-          if [ -f out/public-key.pem ]; then cp out/public-key.pem out/builder.rsa.pub; fi
+          echo "Collected packages:"
           ls -lh out
 
       - name: Upload artifacts
