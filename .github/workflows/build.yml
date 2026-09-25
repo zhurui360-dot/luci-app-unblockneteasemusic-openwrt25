@@ -68,6 +68,21 @@ jobs:
           mkdir -p sdk
           tar --zstd -xf "$sdk" -C sdk --strip-components=1
 
+      - name: Install stable signing key
+        env:
+          APK_SIGNING_KEY: ${{ secrets.APK_SIGNING_KEY }}
+        run: |
+          set -e
+          if [ -n "$APK_SIGNING_KEY" ]; then
+            # 固定密钥：保证每次编译出来的包用同一把公钥校验，
+            # 用户 /etc/apk/keys/ 里导一次就永久有效
+            printf '%s\n' "$APK_SIGNING_KEY" > sdk/private-key.pem
+            chmod 600 sdk/private-key.pem
+            echo "使用仓库 Secrets 里的固定签名密钥"
+          else
+            echo "未配置 APK_SIGNING_KEY，将使用 SDK 临时密钥"
+          fi
+
       - name: Compile package
         run: |
           set -e
