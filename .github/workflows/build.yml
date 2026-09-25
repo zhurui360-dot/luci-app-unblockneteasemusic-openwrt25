@@ -56,6 +56,10 @@ jobs:
           set -e
           git clone --depth 1 -b "$UPSTREAM_BRANCH" "$UPSTREAM_REPO" "package/$PKG_NAME"
           rm -rf "package/$PKG_NAME/.git"
+          # OpenWrt 25.12 官方源已移除 Node.js，写死的 +node 依赖会导致 apk 拒绝安装
+          # 这里把依赖去掉，由本仓库另外提供 node-prebuilt 包
+          sed -i 's/+node //' "package/$PKG_NAME/Makefile"
+          grep -A2 'LUCI_DEPENDS' "package/$PKG_NAME/Makefile"
 
       - name: Download OpenWrt SDK ${{ matrix.version }}
         run: |
@@ -91,13 +95,16 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           make defconfig
+          make package/node/compile V=s
           make "package/$PKG_NAME/compile" -j"$(nproc)" V=s
 
       - name: Collect artifacts
         run: |
           set -e
           mkdir -p out
-          find . \( -name "$PKG_NAME*.apk" -o -name "$PKG_NAME*.ipk" \) -exec cp {} out/ \;
+          find sdk/bin/packages -path '*custom*' \
+            \( -name "$PKG_NAME*.apk" -o -name "$PKG_NAME*.ipk" -o -name 'node-[0-9]*.apk' \) \
+            -exec cp {} out/ \;
           # SDK 自签名的公钥，放到 /etc/apk/keys/ 即可免去 --allow-untrusted
           # 注意：只发公钥，私钥 private-key.pem 绝不外传
           for f in sdk/public-key.pem sdk/key-build.pub sdk/key-build.rsa.pub; do

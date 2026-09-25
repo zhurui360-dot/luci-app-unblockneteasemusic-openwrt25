@@ -54,9 +54,26 @@ if command -v apk >/dev/null 2>&1; then
   [ -n "$PKG_URL" ] || die "取不到 apk 下载地址"
   say "OpenWrt 25.12 / 使用 apk"
 
-  say "安装依赖 node + dnsmasq"
+  # OpenWrt 25.12 官方源已移除 Node.js，本仓库提供官方 musl 二进制打好的包
+  if ! command -v node >/dev/null 2>&1; then
+    NODE_URL="$(pick 'node-[0-9][^"]*\.apk')"
+    if [ -n "$NODE_URL" ]; then
+      say "安装 Node.js 运行时（本仓库提供，官方源已移除）"
+      get "$NODE_URL" /tmp/unb-node.apk
+      apk add --allow-untrusted /tmp/unb-node.apk
+      rm -f /tmp/unb-node.apk
+    else
+      say "尝试从软件源安装 node"
+      apk update || true
+      apk add node || die "软件源里没有 node，且 Release 里也没找到 node-*.apk"
+    fi
+  else
+    say "已检测到 Node.js: $(node -v 2>/dev/null || echo unknown)"
+  fi
+
+  say "安装 dnsmasq-full（插件需要）"
   apk update || true
-  apk add node dnsmasq || echo "（依赖安装失败请手动处理，继续尝试安装插件）"
+  apk add dnsmasq-full || echo "（dnsmasq-full 安装失败请手动处理，Hosts 劫持方式用系统自带 dnsmasq 也能跑）"
 
   if [ -n "$KEY_URL" ]; then
     say "导入构建签名公钥"
@@ -69,6 +86,7 @@ if command -v apk >/dev/null 2>&1; then
 
   say "安装插件"
   apk add --allow-untrusted /tmp/unb-pkg.apk
+  rm -f /tmp/unb-pkg.apk
 
 elif command -v opkg >/dev/null 2>&1; then
   ########## OpenWrt 24.10（opkg） ##########
