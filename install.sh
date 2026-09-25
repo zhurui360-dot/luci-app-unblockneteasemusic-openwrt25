@@ -88,6 +88,13 @@ if command -v apk >/dev/null 2>&1; then
   apk add --allow-untrusted /tmp/unb-pkg.apk
   rm -f /tmp/unb-pkg.apk
 
+  # 校验 node 真的能跑（musl / glibc 不匹配会在这里暴露）
+  if ! node -v >/dev/null 2>&1; then
+    echo "!!! 警告：node 无法执行，多半是 musl/glibc 不匹配" >&2
+    echo "    本仓库的 node 包是 musl 版（OpenWrt 默认 libc）。" >&2
+    echo "    请把 \`ls /lib/ld-* /lib/libc.so*\` 的输出发给我确认。" >&2
+  fi
+
 elif command -v opkg >/dev/null 2>&1; then
   ########## OpenWrt 24.10（opkg） ##########
   PKG_IPK="$(echo "$JSON" | tr ',{' '\n\n' | grep -o "https://[^\"]*luci-app-unblockneteasemusic[^.]*[0-9a-z.-]*\.ipk" | head -1)"
