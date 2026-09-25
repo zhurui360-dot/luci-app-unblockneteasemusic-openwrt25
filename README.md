@@ -2,19 +2,39 @@
 
 解锁网易云音乐灰色/无版权歌曲的 LuCI 插件（OpenWrt/iStoreOS 25.12 专用 apk 版）。
 
-## 这是什么
+## 项目简介
 
-本仓库是 [UnblockNeteaseMusic/luci-app-unblockneteasemusic](https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic)（`js` 分支）的**自动编译仓库**：用 GitHub Actions + OpenWrt 官方 25.12 SDK 重新打包，不发到 Release 之外的任何改动。上游项目使用 GPL-3.0-only 协议。
+> 以下介绍完整拷贝自[上游项目](https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic)，方便直接了解插件。
 
-插件本体功能（来自上游）：
+这是一个用于解除网易云音乐播放限制的 OpenWrt 插件，完整支持 播放 / 下载 无版权 / 收费 歌曲。
+原理为通过获取其他平台的音乐播放链接，替换网易云音乐内 无版权 / 收费 歌曲链接。
 
-- 在路由器层面代理网易云音乐客户端的请求，用其他音源（酷狗 / 酷我 / 咪咕等）替换灰色歌曲
-- 全屋生效：家里所有设备（手机、平板、车机）无需装任何客户端
-- 提供 LuCI 网页界面，可开关、选音源、看运行状态和日志
+## 功能说明
 
-### 为什么需要重新编译
+1. 支持自定义音源选择，一般设置默认即可；如需高音质音乐，推荐选择“酷我”或“咪咕”
+2. 支持使用 IPset / Hosts 自动劫持相关请求，客户端无需设置代理即可使用
+3. 支持 HTTPS 劫持，客户端信任证书后即可正常使用
+4. 支持将服务公开至公网（默认监听局域网），支持开启严格模式
+5. 支持设定代理，支持指定网易云音乐服务器 IP，支持设定 EndPoint
+6. 支持手动/自动更新 Core，确保插件正常运作
+7. 支持设定 JOOX/Migu/QQ Cookie / Youtube API，以正常使用相关音源
+8. 支持无损音质（目前支持 酷狗、酷我、咪咕、pyncmd、QQ 音源）
 
-上游 Release 只提供 `.ipk`，而 OpenWrt 25.12（iStoreOS 25.12.x，内核 6.12）已把包管理器从 opkg 换成 **apk**，`.ipk` 装不上。本仓库用 25.12 SDK 编出 `.apk`。
+## 效果图
+
+### LuCI 界面
+
+![LuCI 界面 1](https://raw.githubusercontent.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic/js/views/view1.jpg)
+
+![LuCI 界面 2](https://raw.githubusercontent.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic/js/views/view2.jpg)
+
+### UWP 网易云音乐客户端
+
+![UWP 客户端效果](https://raw.githubusercontent.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic/js/views/view3.jpg)
+
+## 为什么需要重新编译
+
+上游 Release 只提供 `.ipk`，而 OpenWrt 25.12（iStoreOS 25.12.x，内核 6.12）已把包管理器从 opkg 换成 **apk**，`.ipk` 装不上。本仓库用 GitHub Actions + OpenWrt 官方 25.12 SDK 重新打包，不修改上游任何代码。
 
 另外，25.12 的官方软件源**已移除 Node.js**，而插件依赖 `node` 运行核心脚本。本仓库把 Node.js 官方 musl-x64 预编译版打成 `node-22.23.3-r1.apk` 一并发布（仅支持 x86_64 设备）。
 
@@ -66,15 +86,20 @@ opkg install ./luci-app-unblockneteasemusic_*.ipk
 
 ## 怎么用
 
-1. 浏览器打开路由器管理页 → 左侧菜单 **服务 → 解除网易云音乐播放限制**
-2. **勾选「启用本插件」**
-3. **音源接口**选「默认」即可（想要更高音质可试「酷我」或「咪咕」）
-4. **劫持方式选 Hosts** —— 25.12 使用 fw4/nftables，旧的 IPset 方式不生效
-5. 首次启动会自动下载音乐核心（Node.js 脚本），走 GitHub，国内网络可能较慢，可在「状态」页看进度
-6. 手机/电脑上的网易云音乐 App 照常登录使用，灰色歌曲即可播放
+### 路由器插件配置
 
-HTTPS 音源（可选）：需要在客户端信任证书
-[ca.crt](https://raw.githubusercontent.com/UnblockNeteaseMusic/server/enhanced/ca.crt)
+1. 在路由器 LuCI 界面“服务”选项中找到“解除网易云音乐播放限制”
+2. 勾选“启用本插件”
+3. “音源接口”选择“默认”（高音质音源推荐选择“酷我”或“咪咕”）
+4. **“劫持方式”选 Hosts** —— 25.12 使用 fw4/nftables，旧的 IPset 方式不生效
+5. 点击“保存&应用”
+6. 现在您局域网下的所有设备，（一般情况下）无需任何设置即可自动解除网易云音乐播放限制
+
+### 特别说明
+
+1. 首次使用本插件时，将会在后台下载核心程序，故启动时间可能会稍微长一点
+2. 如需使用网页端，请额外安装 Tampermonkey 插件：[NeteaseMusic UI Unlocker](https://greasyfork.org/zh-CN/scripts/382285-neteasemusic-ui-unlocker)
+3. 推荐在客户端信任 [UnblockNeteaseMusic 证书](https://raw.githubusercontent.com/UnblockNeteaseMusic/server/enhanced/ca.crt)，以便 HTTPS 通讯（若您不放心，也可以[自行签发证书](https://github.com/nondanee/UnblockNeteaseMusic/issues/48#issuecomment-477870013)）
 
 ## 支持的设备
 
@@ -92,7 +117,23 @@ gh workflow run build.yml -f tag=<tag名> -f publish=true
 
 构建流程：拉取上游 `js` 分支 → OpenWrt 25.12.4 SDK（x86/64）→ 编译插件 + Node 运行时 → 发布 Release。
 
-## 注意
+## 鸣谢
 
-- 25.12 的 LuCI 是 JS 版，必须用上游 `js` 分支；`master` 分支是 Lua 版，装上去界面不显示
-- 本仓库不修改上游任何代码，仅重新打包；如遇插件功能问题请到[上游仓库](https://github.com/UnblockNeteaseMusic/luci-app-unblockneteasemusic)反馈
+以下鸣谢来自上游项目：
+
+[UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server)的开发者：[nondanee](https://github.com/nondanee)、[pan93412](https://github.com/pan93412)、[1715173329](https://github.com/1715173329)
+
+[luci-app-unblockmusic](https://github.com/maxlicheng/luci-app-unblockmusic)的开发者：[maxlicheng](https://github.com/maxlicheng)
+
+[luci-app-unblockmusic（二次修改）](https://github.com/coolsnowwolf/lede/tree/master/package/lean/luci-app-unblockmusic)的开发者：[Lean](https://github.com/coolsnowwolf)
+
+IPSet 劫持方式指导：[恩山 692049#125 楼](https://www.right.com.cn/forum/forum.php?mod=viewthread&tid=692049&page=9#pid4104303) [rufengsuixing](https://github.com/rufengsuixing/luci-app-unblockmusic) [binsee](https://github.com/binsee/luci-app-unblockmusic)
+
+Hosts 劫持方式指导：[UnblockNeteaseMusic](https://github.com/nondanee/UnblockNeteaseMusic) [云音乐安卓又搞事啦](https://jixun.moe/post/netease-android-hosts-bypass/)
+
+核心程序版本检测方法指导：[vernesong](https://github.com/vernesong)
+
+## 协议
+
+上游项目使用 [GPL-3.0-only](https://spdx.org/licenses/GPL-3.0-only.html) 协议授权。
+在遵循此协议的前提下，你可以自由修改和分发。
